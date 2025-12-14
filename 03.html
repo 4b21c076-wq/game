@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>03</title>
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --modal-mask: rgba(0, 0, 0, 0.6);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: var(--bg-color);
+            font-family: "Microsoft JhengHei", Arial, sans-serif;
+            overflow: hidden;
+            user-select: none; 
+        }
+
+        #game-container {
+            position: relative;
+            width: 960px;
+            height: 720px;
+            overflow: hidden;
+            cursor: crosshair; 
+        }
+
+        /* Layer 1: 底圖 */
+        #bg-grid {
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%;
+            object-fit: fill; z-index: 1;
+        }
+
+        /* Layer 2: 手 (主場景) */
+        #hand-area {
+            position: absolute;
+            z-index: 5; 
+            width: 80%;   
+            height: 70%;  
+            left: 50%;
+            transform: translateX(-50%); 
+            bottom: 10%;  
+            display: flex;
+            justify-content: center;
+            align-items: flex-end; 
+            pointer-events: none; 
+        }
+
+        .hand-img {
+            width: auto;      
+            height: auto;     
+            max-width: 100%;  
+            max-height: 100%; 
+            object-fit: contain; 
+        }
+
+        /* Layer 3: 細菌容器 */
+        #bacteria-container {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+        }
+
+        /* 【修改】細菌的外層 (只負責定位，不動了) */
+        .germ-wrapper {
+            position: absolute;
+            width: 100px; 
+            height: 100px;
+            /* 移除了 animation: creep */
+        }
+
+        /* 【修改】細菌圖片 (只負責顯示) */
+        .germ-target {
+            width: 100%; 
+            height: auto; 
+            display: block;
+            transition: opacity 0.1s;
+            /* 移除了 animation: breathe，平時不動 */
+        }
+
+        /* Layer 4: 泡泡筆刷層 */
+        .bubble-brush {
+            position: absolute;
+            width: 30px; 
+            height: 30px;
+            pointer-events: none; 
+            z-index: 15;
+            animation: bubblePop 1s forwards; 
+        }
+
+        @keyframes bubblePop {
+            0% { transform: scale(0.5); opacity: 0.8; }
+            50% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
+
+        /* Layer 5: 框框 */
+        #frame-bg {
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 20; pointer-events: none;
+        }
+
+        /* UI */
+        .ui-btn { position: absolute; cursor: pointer; z-index: 30; transition: transform 0.1s; }
+        .ui-btn:hover { transform: scale(1.05); }
+        #title-img { position: absolute; top: 2%; left: 50%; transform: translateX(-50%); width: 30%; z-index: 25; pointer-events: none; }
+        #close-btn { top: 4%; right: 4%; width: 70px; }
+        #hint-btn { bottom: 12%; right: 6%; width: 130px; }
+
+        /* Modal */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: var(--modal-mask); z-index: 100; justify-content: center; align-items: center; }
+        
+        .modal-content-standard { 
+            position: relative; width: 500px; 
+            display: flex; justify-content: center; align-items: center; 
+            flex-direction: column; 
+        }
+        
+        .modal-img-full { width: 100%; height: auto; display: block; }
+        .modal-close-standard { position: absolute; top: -20px; right: -50px; width: 80px; cursor: pointer; z-index: 101; transition: transform 0.1s; }
+        .modal-close-standard:hover { transform: scale(1.1); }
+
+        #pause-modal-content { position: relative; width: 500px; display: flex; justify-content: center; align-items: center; }
+        #pause-frame-img { width: 100%; height: auto; }
+        .pause-btns-container { position: absolute; bottom: 15%; left: 0; width: 100%; display: flex; justify-content: center; gap: 20px; }
+        .pause-btn-img { width: 140px; cursor: pointer; transition: transform 0.1s; }
+        .pause-btn-img:hover { transform: scale(1.05); }
+
+        #win-modal-content { position: relative; width: 500px; display: flex; justify-content: center; align-items: center; }
+        #win-bg-img { width: 100%; height: auto; }
+        #win-close-btn { position: absolute; top: -20px; right: -20px; width: 60px; cursor: pointer; transition: transform 0.1s; }
+        #win-close-btn:hover { transform: scale(1.1); }
+
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <img src="img/0.png" id="bg-grid" alt="背景">
+        <div id="hand-area">
+            <img src="img/03-2.png" class="hand-img" alt="手">
+        </div>
+        <div id="bacteria-container"></div>
+        <img src="img/00.png" id="frame-bg" alt="邊框">
+        <img src="img/03-0.png" id="title-img" alt="標題">
+        <img src="img/004.png" id="close-btn" class="ui-btn" onclick="showPauseModal()" alt="暫停">
+        <img src="img/0-1.png" id="hint-btn" class="ui-btn" onclick="showHint()" alt="提示">
+    </div>
+
+    <div id="hint-modal" class="modal">
+        <div class="modal-content-standard">
+            <img src="img/03-1.png" alt="提示內容" class="modal-img-full">
+            <img src="img/0-2.png" class="modal-close-standard" onclick="hideHint()" alt="關閉提示">
+        </div>
+    </div>
+
+    <div id="pause-modal" class="modal">
+        <div id="pause-modal-content">
+            <img src="img/001.png" id="pause-frame-img" alt="暫停框">
+            <div class="pause-btns-container">
+                <img src="img/002.png" class="pause-btn-img" onclick="quitGame()" alt="放棄">
+                <img src="img/003.png" class="pause-btn-img" onclick="hidePauseModal()" alt="繼續玩">
+            </div>
+        </div>
+    </div>
+
+    <div id="win-modal" class="modal">
+        <div class="modal-content-standard">
+            <img src="img/03-100.png" alt="過關" class="modal-img-full">
+            <img src="img/101.png" class="modal-close-standard" onclick="closeWinModal()" alt="關閉">
+        </div>
+    </div>
+
+    <script>
+        const gameContainer = document.getElementById('game-container');
+        const bacteriaContainer = document.getElementById('bacteria-container');
+        
+        const bacteriaImages = [
+            'img/03-41.png',
+            'img/03-42.png',
+            'img/03-43.png',
+            'img/03-44.png'
+        ];
+
+        // 緊貼手掌的座標
+        const possibleSpots = [
+            { top: '35%', left: '48%', layer: 'front' }, 
+            { top: '25%', left: '42%', layer: 'front' }, 
+            { top: '28%', left: '55%', layer: 'front' }, 
+            { top: '15%', left: '48%', layer: 'front' }, 
+            { top: '55%', left: '45%', layer: 'front' }, 
+            { top: '55%', left: '55%', layer: 'front' }, 
+            { top: '65%', left: '50%', layer: 'front' }, 
+            { top: '45%', left: '35%', layer: 'back' },  
+            { top: '48%', left: '60%', layer: 'back' },  
+            { top: '18%', left: '38%', layer: 'back' },  
+            { top: '20%', left: '60%', layer: 'back' },  
+            { top: '60%', left: '35%', layer: 'back' },  
+            { top: '60%', left: '62%', layer: 'back' }   
+        ];
+
+        let activeBacteria = 0; 
+
+        function initGame() {
+            activeBacteria = bacteriaImages.length; 
+            
+            const shuffledSpots = possibleSpots.sort(() => 0.5 - Math.random());
+            
+            for (let i = 0; i < 4; i++) {
+                const spot = shuffledSpots[i];
+                const imgSrc = bacteriaImages[i];
+                createBacteria(spot, imgSrc, i);
+            }
+
+            gameContainer.addEventListener('mousemove', handleBrush);
+        }
+
+        function createBacteria(spot, imgSrc, id) {
+            const wrapper = document.createElement('div');
+            wrapper.classList.add('germ-wrapper');
+            wrapper.id = 'germ-wrapper-' + id;
+            
+            wrapper.style.top = spot.top;
+            wrapper.style.left = spot.left;
+            
+            if (spot.layer === 'front') {
+                wrapper.style.zIndex = 6; 
+            } else {
+                wrapper.style.zIndex = 4; 
+            }
+
+            const germ = document.createElement('img');
+            germ.src = imgSrc; 
+            germ.classList.add('germ-target');
+            germ.id = 'germ-' + id;
+            
+            // 隨機初始角度 (靜止狀態)
+            const initialRotation = Math.random() * 360;
+            germ.style.transform = `rotate(${initialRotation}deg)`;
+            
+            // 把初始角度存起來，這樣晃動時才不會歸零
+            wrapper.dataset.initialRotation = initialRotation;
+            wrapper.dataset.health = 1;
+
+            wrapper.appendChild(germ);
+            bacteriaContainer.appendChild(wrapper);
+        }
+
+        function handleBrush(e) {
+            if (Math.random() > 0.5) return; 
+            createBubbleParticle(e.clientX, e.clientY);
+            checkCollision(e.clientX, e.clientY);
+        }
+
+        function createBubbleParticle(x, y) {
+            const bubble = document.createElement('img');
+            bubble.src = 'img/03-3.png'; 
+            bubble.classList.add('bubble-brush');
+            
+            const size = Math.random() * 20 + 20; 
+            bubble.style.width = size + 'px';
+            bubble.style.height = size + 'px';
+
+            const offsetX = (Math.random() - 0.5) * 20;
+            const offsetY = (Math.random() - 0.5) * 20;
+
+            bubble.style.position = 'fixed';
+            bubble.style.left = (x + offsetX) + 'px';
+            bubble.style.top = (y + offsetY) + 'px';
+
+            document.body.appendChild(bubble);
+
+            setTimeout(() => {
+                bubble.remove();
+            }, 1000);
+        }
+
+        function checkCollision(mouseX, mouseY) {
+            const wrappers = document.querySelectorAll('.germ-wrapper');
+            
+            wrappers.forEach(wrapper => {
+                const rect = wrapper.getBoundingClientRect();
+                
+                if (mouseX >= rect.left && mouseX <= rect.right &&
+                    mouseY >= rect.top && mouseY <= rect.bottom) {
+                    
+                    let health = parseFloat(wrapper.dataset.health);
+                    if (health > 0) {
+                        health -= 0.01; 
+                        wrapper.dataset.health = health;
+                        
+                        const img = wrapper.querySelector('img');
+                        if (img) {
+                            img.style.opacity = health; 
+                            
+                            // 【關鍵修改】受擊時的晃動效果
+                            // 讀取初始角度
+                            const baseRotation = parseFloat(wrapper.dataset.initialRotation);
+                            // 產生隨機偏移 (震動)
+                            const shakeX = (Math.random() - 0.5) * 10;
+                            const shakeY = (Math.random() - 0.5) * 10;
+                            const shakeRot = (Math.random() - 0.5) * 20;
+                            
+                            // 套用變形：位移 + 旋轉 + 稍微縮放
+                            img.style.transform = `translate(${shakeX}px, ${shakeY}px) rotate(${baseRotation + shakeRot}deg) scale(0.95)`;
+                        }
+
+                        if (health <= 0) {
+                            wrapper.style.display = 'none'; 
+                            wrapper.remove(); 
+                            activeBacteria--;
+                            checkWin();
+                        }
+                    }
+                }
+            });
+        }
+
+        function checkWin() {
+            if (activeBacteria <= 0) {
+                setTimeout(() => {
+                    document.getElementById('win-modal').style.display = 'flex';
+                }, 500);
+            }
+        }
+
+        function showHint() { document.getElementById('hint-modal').style.display = 'flex'; }
+        function hideHint() { document.getElementById('hint-modal').style.display = 'none'; }
+        function showPauseModal() { document.getElementById('pause-modal').style.display = 'flex'; }
+        function hidePauseModal() { document.getElementById('pause-modal').style.display = 'none'; }
+        
+        function closeWinModal() {
+            window.location.href = 'index.html';
+        }
+        function quitGame() {
+            window.location.href = 'index.html'; 
+        }
+
+        window.onload = initGame;
+    </script>
+</body>
+</html>

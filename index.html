@@ -42,6 +42,30 @@
             z-index: 1;
         }
 
+        /* --- [新增] 左上右上導航按鈕樣式 --- */
+        .nav-btn {
+            position: absolute;
+            top: 30px;        /* 距離頂部 30px */
+            width: 80px;      /* 按鈕寬度，可自行調整 */
+            height: auto;
+            cursor: pointer;
+            z-index: 15;      /* 層級比背景高，但比彈窗低 */
+            transition: transform 0.2s;
+        }
+        .nav-btn:hover {
+            transform: scale(1.1); /* 滑鼠懸停放大效果 */
+        }
+        
+        /* 左上角位置 */
+        .btn-left {
+            left: 30px;
+        }
+
+        /* 右上角位置 */
+        .btn-right {
+            right: 30px;
+        }
+
         /* --- 細菌場景容器 --- */
         #bacteria-wrapper {
             position: absolute;
@@ -110,7 +134,7 @@
             align-items: center;
         }
 
-        /* [修改] 統一視窗寬度為 780px */
+        /* 統一視窗寬度為 780px */
         .menu-content {
             position: relative;
             width: 780px; /* 固定寬度 780px */
@@ -126,7 +150,7 @@
             display: block;
         }
 
-        /* [修改] 統一右上角叉叉樣式 */
+        /* 統一右上角叉叉樣式 */
         #menu-close-btn {
             position: absolute;
             top: -30px;      /* 往上移出視窗 */
@@ -156,6 +180,14 @@
 
     <div id="main-container">
         <img src="img/0.png" id="bg-grid" alt="背景">
+
+        <a href="start.html">
+            <img src="img/0-0.png" class="nav-btn btn-left" alt="Back">
+        </a>
+
+        <a href="good.html">
+            <img src="img/0-01.png" class="nav-btn btn-right" alt="Go Good">
+        </a>
 
         <div id="bacteria-wrapper">
             <img src="img/0000.png" id="big-bacteria-img" alt="大細菌">

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Good</title>
+    <style>
+        /* --- 基礎設定 --- */
+        body { 
+            margin: 0; 
+            padding: 0; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            width: 100vw;
+            height: 100vh;
+            background-color: #ffffff; /* 背景設為黑 */
+            font-family: "Microsoft JhengHei", Arial, sans-serif; 
+            overflow: hidden; 
+            touch-action: none; 
+        }
+
+        /* --- 主容器 (固定 960x720) --- */
+        #game-container { 
+            position: relative; 
+            width: 960px; 
+            height: 720px; 
+            transform-origin: center center; 
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            background-color: #fff;
+            overflow: hidden; 
+        }
+
+        /* --- 背景圖片 (0-00.jpg) --- */
+        #bg-image {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* 確保填滿容器 */
+            z-index: 1;
+        }
+
+        /* --- 返回按鈕 (0-0.png) --- */
+        #back-btn {
+            position: absolute;
+            top: 30px;        /* 距離上方 30px */
+            left: 30px;       /* 距離左方 30px */
+            width: 80px;      /* 按鈕大小，可依需求調整 */
+            height: auto;
+            cursor: pointer;
+            z-index: 10;      /* 確保浮在背景之上 */
+            transition: transform 0.1s;
+        }
+
+        #back-btn:hover {
+            transform: scale(1.1); /* 滑鼠移上去稍微放大 */
+        }
+        #back-btn:active {
+            transform: scale(0.95); /* 點擊時稍微縮小 */
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <img src="img/0-00.jpg" id="bg-image" alt="背景">
+
+        <a href="index.html">
+            <img src="img/0-0.png" id="back-btn" alt="回首頁">
+        </a>
+    </div>
+
+    <script>
+        // --- 縮放機制 (resizeGame) ---
+        function resizeGame() {
+            const container = document.getElementById('game-container');
+            const targetWidth = 960;
+            const targetHeight = 720;
+            const windowWidth = window.innerWidth;
+            const windowHeight = window.innerHeight;
+            
+            // 計算縮放比例，確保完整顯示在螢幕內
+            const scale = Math.min(windowWidth / targetWidth, windowHeight / targetHeight);
+            
+            container.style.transform = `scale(${scale})`;
+        }
+
+        // 監聽視窗調整與載入事件
+        window.addEventListener('resize', resizeGame);
+        window.addEventListener('load', resizeGame);
+    </script>
+</body>
+</html>

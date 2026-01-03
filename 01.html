@@ -48,20 +48,20 @@
             z-index: 20;
         }
 
-        /* [修改] 右上角關閉按鈕 (004) */
+        /* 右上角關閉按鈕 (004) */
         #close-btn {
             position: absolute;
             top: 4%;
             right: 4%;
             width: 80px;
             cursor: pointer;
-            pointer-events: auto; /* 確保可以點擊 */
+            pointer-events: auto;
             z-index: 50;
             transition: transform 0.1s;
         }
         #close-btn:active { transform: scale(0.95); }
 
-        /* [修改] 提示按鈕 */
+        /* 提示按鈕 */
         .hint-btn {
             position: absolute;
             bottom: 12%; 
@@ -74,11 +74,9 @@
         }
         .hint-btn:active { transform: scale(0.95); }
 
-        /* --- 4. 生命值顯示 [修改位置：標題下方] --- */
+        /* --- 4. 生命值顯示 --- */
         #lives-container {
             position: absolute;
-            /* 原本在 top: 4%; right: 4%; */
-            /* 現在改到中間，並往下移一點 */
             top: 13%; 
             left: 50%;
             transform: translateX(-50%);
@@ -129,7 +127,7 @@
         /* 統一彈窗容器 (設定寬度 780px) */
         .popup-box {
             position: relative;
-            width: 780px; /* 這裡控制了 001 的寬度 */
+            width: 780px; 
             display: flex;
             justify-content: center;
             align-items: center;
@@ -146,10 +144,10 @@
         .corner-btn:active { transform: scale(0.95); }
         .corner-btn:hover { transform: scale(1.1); }
 
-        /* [新增] 暫停選單按鈕容器 */
+        /* 暫停/失敗選單按鈕容器 */
         .pause-btns-container {
             position: absolute;
-            bottom: 15%; /* 調整按鈕在 001 框內的高度 */
+            bottom: 15%; 
             left: 0;
             width: 100%;
             display: flex;
@@ -204,9 +202,11 @@
 
         <div id="fail-overlay" class="overlay">
             <div class="popup-box">
-                <img src="5.png" class="popup-content" style="filter: grayscale(100%);"> 
-                <img src="6.png" onclick="location.reload()" 
-                     style="position: absolute; bottom: 6%; left: 37%; width: 26%; cursor: pointer; z-index: 102;">
+                <img src="img/001.png" class="popup-content">
+                <div class="pause-btns-container">
+                    <img src="img/002.png" class="pause-btn-img" onclick="quitGame()">
+                    <img src="img/003.png" class="pause-btn-img" onclick="retryGame()">
+                </div>
             </div>
         </div>
 
@@ -254,7 +254,7 @@
         const winOverlay = document.getElementById('win-overlay');
         const failOverlay = document.getElementById('fail-overlay');
         const modalOverlay = document.getElementById('modal-overlay');
-        const pauseModal = document.getElementById('pause-modal'); // 新增暫停變數
+        const pauseModal = document.getElementById('pause-modal');
         
         // Buttons
         const hintBtn = document.getElementById('hintTrigger');
@@ -270,13 +270,13 @@
         const allItems = [
             { id: 'img/01-10.png', type: 'good' },
             { id: 'img/01-13.png', type: 'good' },
-            { id: 'img/01-15.png', type: 'good' },
-            { id: 'img/01-17.png', type: 'good' },
-            { id: 'img/01-19.png', type: 'good' },
+            { id: 'img/01-15.png', type: 'bad' },
+            { id: 'img/01-17.png', type: 'bad' },
+            { id: 'img/01-19.png', type: 'bad' },
             { id: 'img/01-9.png',  type: 'bad' },
-            { id: 'img/01-11.png', type: 'bad' },
-            { id: 'img/01-12.png', type: 'bad' },
-            { id: 'img/01-14.png', type: 'bad' },
+            { id: 'img/01-11.png', type: 'good' },
+            { id: 'img/01-12.png', type: 'good' },
+            { id: 'img/01-14.png', type: 'good' },
             { id: 'img/01-16.png', type: 'bad' },
             { id: 'img/01-18.png', type: 'bad' },
             { id: 'img/01-20.png', type: 'bad' }
@@ -305,9 +305,8 @@
             runCountdown(resumeGame);
         });
 
-        // [新增] 暫停視窗功能
+        // 暫停視窗功能
         function showPauseModal() {
-            // 如果遊戲已經結束或還沒開始，可能不需要暫停，視需求而定，這邊設為遊戲中才暫停
             if(isGameRunning || (lives < 3 && lives > 0 && activeItems.length > 0)) {
                 pauseGame();
                 pauseModal.style.display = 'flex';
@@ -316,14 +315,31 @@
 
         function hidePauseModal() {
             pauseModal.style.display = 'none';
-            // 選擇繼續玩，倒數後開始
             runCountdown(resumeGame);
         }
 
+        // [按 002] 回到 index.html
         function quitGame() {
-            // 這裡可以改成跳轉回首頁，目前先設定為刷新頁面(重置)
             window.location.href = 'index.html'; 
-            // 或者 location.reload();
+        }
+
+        // [按 003] 失敗後重新開始 (跳回 321)
+        function retryGame() {
+            // 隱藏失敗視窗
+            failOverlay.style.display = 'none';
+            
+            // 重置生命
+            lives = 3;
+            hearts.forEach(h => {
+                h.classList.remove('lost');
+            });
+
+            // 清空場上物品
+            activeItems.forEach(item => item.element.remove());
+            activeItems = [];
+
+            // 重新開始倒數
+            runCountdown(startGame);
         }
 
         function runCountdown(callback) {
@@ -422,6 +438,7 @@
             cancelAnimationFrame(gameLoopId);
             activeItems.forEach(item => item.element.remove());
             activeItems = [];
+            // 顯示修改後的失敗視窗 (001, 002, 003)
             failOverlay.style.display = 'flex';
         }
 

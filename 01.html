@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>不挑食偵查隊 - 固定比例版</title>
+    <style>
+        /* --- 0. 基礎設定 --- */
+        body { 
+            margin: 0; 
+            padding: 0; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            width: 100vw;
+            height: 100vh;
+            background-color: #ffffff; 
+            font-family: "Microsoft JhengHei", Arial, sans-serif; 
+            overflow: hidden; 
+            touch-action: none; 
+        }
+
+        /* --- 1. 遊戲主容器 (固定 960x720) --- */
+        #game-container { 
+            position: relative; 
+            width: 960px; 
+            height: 720px; 
+            transform-origin: center center; 
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            background-color: #000;
+            overflow: hidden; 
+        }
+
+        /* --- 2. 圖層設定 --- */
+        .layer-full { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
+        .bg-layer { z-index: 1; object-fit: cover; }
+        #falling-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5; pointer-events: none; }
+        .frame-layer { z-index: 10; object-fit: fill; }
+        .content-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 15; pointer-events: none; }
+
+        /* --- 3. 介面元件 --- */
+        .title-img {
+            position: absolute;
+            top: 2%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40%;
+            z-index: 20;
+        }
+
+        /* [修改] 右上角關閉按鈕 (004) */
+        #close-btn {
+            position: absolute;
+            top: 4%;
+            right: 4%;
+            width: 80px;
+            cursor: pointer;
+            pointer-events: auto; /* 確保可以點擊 */
+            z-index: 50;
+            transition: transform 0.1s;
+        }
+        #close-btn:active { transform: scale(0.95); }
+
+        /* [修改] 提示按鈕 */
+        .hint-btn {
+            position: absolute;
+            bottom: 12%; 
+            right: 6%;   
+            width: 130px;  
+            cursor: pointer;
+            pointer-events: auto;
+            z-index: 30;
+            transition: transform 0.1s;
+        }
+        .hint-btn:active { transform: scale(0.95); }
+
+        /* --- 4. 生命值顯示 [修改位置：標題下方] --- */
+        #lives-container {
+            position: absolute;
+            /* 原本在 top: 4%; right: 4%; */
+            /* 現在改到中間，並往下移一點 */
+            top: 13%; 
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 50;
+            display: flex;
+            gap: 10px;
+        }
+        .heart {
+            width: 50px;
+            height: 50px;
+            font-size: 40px;
+            line-height: 50px;
+            text-align: center;
+            color: red;
+            text-shadow: 2px 2px 0 #fff;
+            transition: opacity 0.3s, transform 0.3s;
+        }
+        .heart.lost { opacity: 0; transform: scale(0); }
+
+        /* --- 5. 怪獸控制區域 --- */
+        #monster-track {
+            position: absolute;
+            bottom: 16%; left: 23%; right: 23%; height: 25%;
+            pointer-events: auto; 
+            z-index: 25;
+            touch-action: none; 
+        }
+        #monster {
+            position: absolute; bottom: 0; left: 0; width: 25%;
+            cursor: grab; user-select: none; -webkit-user-drag: none; touch-action: none;
+        }
+        #monster:active { cursor: grabbing; }
+
+        /* --- 6. 掉落物 --- */
+        .falling-item {
+            position: absolute; width: 80px; top: -100px; object-fit: contain;
+        }
+
+        /* --- 7. 彈窗樣式 --- */
+        .overlay {
+            display: none; 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0, 0, 0, 0.85); 
+            z-index: 100; 
+            justify-content: center; align-items: center; flex-direction: column;
+        }
+
+        /* 統一彈窗容器 (設定寬度 780px) */
+        .popup-box {
+            position: relative;
+            width: 780px; /* 這裡控制了 001 的寬度 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        .popup-content { width: 100%; display: block; border-radius: 20px; }
+
+        /* 右上角叉叉/按鈕樣式 */
+        .corner-btn {
+            position: absolute; top: -30px; right: -60px; width: 90px;
+            cursor: pointer; z-index: 101; transition: transform 0.1s; 
+        }
+        .corner-btn:active { transform: scale(0.95); }
+        .corner-btn:hover { transform: scale(1.1); }
+
+        /* [新增] 暫停選單按鈕容器 */
+        .pause-btns-container {
+            position: absolute;
+            bottom: 15%; /* 調整按鈕在 001 框內的高度 */
+            left: 0;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            z-index: 105;
+        }
+        .pause-btn-img { width: 160px; cursor: pointer; transition: transform 0.1s; }
+        .pause-btn-img:active { transform: scale(0.95); }
+
+        /* 倒數計時 */
+        #countdown-text {
+            font-size: 150px; color: #FFEB3B; font-weight: bold; text-shadow: 4px 4px 0 #FF5722;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <img src="img/0.png" class="layer-full bg-layer">
+        <div id="falling-layer"></div>
+        <img src="img/00.png" class="layer-full frame-layer">
+
+        <div class="content-layer">
+            <img src="img/01-0.png" class="title-img">
+            
+            <div id="lives-container">
+                <div class="heart">❤️</div>
+                <div class="heart">❤️</div>
+                <div class="heart">❤️</div>
+            </div>
+
+            <img src="img/004.png" id="close-btn" onclick="showPauseModal()">
+
+            <div id="monster-track">
+                <img src="img/01-1.png" id="monster">
+            </div>
+
+            <img src="img/0-1.png" class="hint-btn" id="hintTrigger">
+        </div>
+
+        <div id="countdown-overlay" class="overlay">
+            <div id="countdown-text">3</div>
+        </div>
+
+        <div id="win-overlay" class="overlay">
+            <div class="popup-box">
+                <img src="img/01-100.png" class="popup-content">
+                <img src="img/101.png" class="corner-btn" onclick="location.reload()">
+            </div>
+        </div>
+
+        <div id="fail-overlay" class="overlay">
+            <div class="popup-box">
+                <img src="5.png" class="popup-content" style="filter: grayscale(100%);"> 
+                <img src="6.png" onclick="location.reload()" 
+                     style="position: absolute; bottom: 6%; left: 37%; width: 26%; cursor: pointer; z-index: 102;">
+            </div>
+        </div>
+
+        <div id="modal-overlay" class="overlay">
+            <div class="popup-box">
+                <img src="img/01-5.png" class="popup-content">
+                <img src="img/0-2.png" class="corner-btn" id="modalClose">
+            </div>
+        </div>
+
+        <div id="pause-modal" class="overlay">
+            <div class="popup-box">
+                <img src="img/001.png" class="popup-content">
+                <div class="pause-btns-container">
+                    <img src="img/002.png" class="pause-btn-img" onclick="quitGame()">
+                    <img src="img/003.png" class="pause-btn-img" onclick="hidePauseModal()">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. 縮放邏輯 ---
+        function resizeGame() {
+            const container = document.getElementById('game-container');
+            const targetWidth = 960;
+            const targetHeight = 720;
+            const windowWidth = window.innerWidth;
+            const windowHeight = window.innerHeight;
+            const scale = Math.min(windowWidth / targetWidth, windowHeight / targetHeight);
+            container.style.transform = `scale(${scale})`;
+        }
+        window.addEventListener('resize', resizeGame);
+        window.addEventListener('load', resizeGame);
+
+        // --- 2. 變數與元件 ---
+        const monster = document.getElementById('monster');
+        const track = document.getElementById('monster-track');
+        const fallingLayer = document.getElementById('falling-layer');
+        const hearts = document.querySelectorAll('.heart');
+        
+        // Overlays
+        const countdownOverlay = document.getElementById('countdown-overlay');
+        const countdownText = document.getElementById('countdown-text');
+        const winOverlay = document.getElementById('win-overlay');
+        const failOverlay = document.getElementById('fail-overlay');
+        const modalOverlay = document.getElementById('modal-overlay');
+        const pauseModal = document.getElementById('pause-modal'); // 新增暫停變數
+        
+        // Buttons
+        const hintBtn = document.getElementById('hintTrigger');
+        const closeHintBtn = document.getElementById('modalClose');
+
+        let lives = 3;
+        let isGameRunning = false;
+        let gameLoopId;
+        let activeItems = [];
+        let itemPool = [];
+
+        // --- 3. 物品資料庫 ---
+        const allItems = [
+            { id: 'img/01-10.png', type: 'good' },
+            { id: 'img/01-13.png', type: 'good' },
+            { id: 'img/01-15.png', type: 'good' },
+            { id: 'img/01-17.png', type: 'good' },
+            { id: 'img/01-19.png', type: 'good' },
+            { id: 'img/01-9.png',  type: 'bad' },
+            { id: 'img/01-11.png', type: 'bad' },
+            { id: 'img/01-12.png', type: 'bad' },
+            { id: 'img/01-14.png', type: 'bad' },
+            { id: 'img/01-16.png', type: 'bad' },
+            { id: 'img/01-18.png', type: 'bad' },
+            { id: 'img/01-20.png', type: 'bad' }
+        ];
+
+        function initPool() {
+            itemPool = [...allItems];
+            for (let i = itemPool.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [itemPool[i], itemPool[j]] = [itemPool[j], itemPool[i]];
+            }
+        }
+
+        // --- 4. 控制與視窗邏輯 ---
+
+        // 提示相關
+        hintBtn.addEventListener('click', () => {
+            if (!isGameRunning && activeItems.length === 0 && lives === 3) return;
+            if (!isGameRunning) return;
+            pauseGame();
+            modalOverlay.style.display = 'flex';
+        });
+
+        closeHintBtn.addEventListener('click', () => {
+            modalOverlay.style.display = 'none';
+            runCountdown(resumeGame);
+        });
+
+        // [新增] 暫停視窗功能
+        function showPauseModal() {
+            // 如果遊戲已經結束或還沒開始，可能不需要暫停，視需求而定，這邊設為遊戲中才暫停
+            if(isGameRunning || (lives < 3 && lives > 0 && activeItems.length > 0)) {
+                pauseGame();
+                pauseModal.style.display = 'flex';
+            }
+        }
+
+        function hidePauseModal() {
+            pauseModal.style.display = 'none';
+            // 選擇繼續玩，倒數後開始
+            runCountdown(resumeGame);
+        }
+
+        function quitGame() {
+            // 這裡可以改成跳轉回首頁，目前先設定為刷新頁面(重置)
+            window.location.href = 'index.html'; 
+            // 或者 location.reload();
+        }
+
+        function runCountdown(callback) {
+            countdownOverlay.style.display = 'flex';
+            let count = 3;
+            countdownText.innerText = count;
+
+            const timer = setInterval(() => {
+                count--;
+                if (count > 0) {
+                    countdownText.innerText = count;
+                } else {
+                    clearInterval(timer);
+                    countdownOverlay.style.display = 'none';
+                    if (callback) callback();
+                }
+            }, 1000);
+        }
+
+        function startGame() {
+            isGameRunning = true;
+            initPool();
+            spawnItem();
+            gameLoop();
+        }
+
+        function pauseGame() {
+            isGameRunning = false;
+            cancelAnimationFrame(gameLoopId);
+        }
+
+        function resumeGame() {
+            isGameRunning = true;
+            gameLoop();
+            if (activeItems.length === 0) {
+                spawnItem();
+            }
+        }
+
+        // --- 5. 怪獸拖曳 ---
+        let isDragging = false;
+        let startX = 0;
+        let startLeft = 0;
+
+        function centerMonster() {
+            const trackW = track.offsetWidth;
+            const monsterW = monster.offsetWidth;
+            monster.style.left = (trackW - monsterW) / 2 + 'px';
+        }
+
+        function onDragStart(e) {
+            if (!isGameRunning) return;
+            isDragging = true;
+            monster.style.cursor = 'grabbing';
+            const clientX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
+            startX = clientX;
+            startLeft = monster.offsetLeft;
+        }
+
+        function onDragMove(e) {
+            if (e.type === 'touchmove') e.preventDefault(); 
+            if (!isDragging || !isGameRunning) return;
+
+            const clientX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
+            const container = document.getElementById('game-container');
+            const computedStyle = window.getComputedStyle(container);
+            const matrix = new DOMMatrix(computedStyle.transform);
+            const scaleFactor = matrix.a || 1;
+
+            const deltaX = (clientX - startX) / scaleFactor;
+            let newLeft = startLeft + deltaX;
+            const maxLeft = track.offsetWidth - monster.offsetWidth;
+
+            if (newLeft < 0) newLeft = 0;
+            if (newLeft > maxLeft) newLeft = maxLeft;
+            monster.style.left = newLeft + 'px';
+        }
+
+        function onDragEnd() {
+            isDragging = false;
+            monster.style.cursor = 'grab';
+        }
+
+        document.body.addEventListener('touchmove', function(e){ e.preventDefault(); }, { passive: false });
+
+        // --- 6. 遊戲核心邏輯 ---
+        function loseLife() {
+            if (!isGameRunning || lives <= 0) return;
+            lives--;
+            if (hearts[lives]) hearts[lives].classList.add('lost');
+            if (lives <= 0) gameOver();
+        }
+
+        function gameOver() {
+            isGameRunning = false;
+            cancelAnimationFrame(gameLoopId);
+            activeItems.forEach(item => item.element.remove());
+            activeItems = [];
+            failOverlay.style.display = 'flex';
+        }
+
+        function gameWin() {
+            isGameRunning = false;
+            cancelAnimationFrame(gameLoopId);
+            winOverlay.style.display = 'flex';
+        }
+
+        function spawnItem() {
+            if (!isGameRunning) return;
+            if (activeItems.length > 0) return;
+            if (itemPool.length === 0) {
+                gameWin();
+                return;
+            }
+
+            const data = itemPool.pop();
+            const img = document.createElement('img');
+            img.src = data.id;
+            img.className = 'falling-item';
+            
+            const randomLeft = 25 + Math.random() * 40; 
+            img.style.left = randomLeft + '%';
+            img.style.top = '-15%';
+
+            fallingLayer.appendChild(img);
+
+            const speed = 0.6; 
+            activeItems.push({ element: img, type: data.type, y: -15, speed: speed });
+        }
+
+        function gameLoop() {
+            if (!isGameRunning) return;
+
+            const monsterRect = monster.getBoundingClientRect();
+            // 碰撞判定
+            const hitBox = {
+                left: monsterRect.left + monsterRect.width * 0.2,
+                right: monsterRect.right - monsterRect.width * 0.2,
+                top: monsterRect.top + monsterRect.height * 0.3,
+                bottom: monsterRect.bottom
+            };
+
+            for (let i = activeItems.length - 1; i >= 0; i--) {
+                let itemObj = activeItems[i];
+                let itemElem = itemObj.element;
+                itemObj.y += itemObj.speed;
+                itemElem.style.top = itemObj.y + '%';
+
+                const itemRect = itemElem.getBoundingClientRect();
+                const isOverlapping = !(
+                    itemRect.right < hitBox.left ||
+                    itemRect.left > hitBox.right ||
+                    itemRect.bottom < hitBox.top ||
+                    itemRect.top > hitBox.bottom
+                );
+
+                let itemRemoved = false;
+                if (isOverlapping) {
+                    if (itemObj.type === 'bad') loseLife();
+                    itemElem.remove();
+                    activeItems.splice(i, 1);
+                    itemRemoved = true;
+                } else if (itemObj.y > 100) {
+                    if (itemObj.type === 'good') loseLife();
+                    itemElem.remove();
+                    activeItems.splice(i, 1);
+                    itemRemoved = true;
+                }
+
+                if (itemRemoved && lives > 0) {
+                    setTimeout(() => { if(isGameRunning) spawnItem(); }, 200);
+                }
+            }
+            gameLoopId = requestAnimationFrame(gameLoop);
+        }
+
+        // --- 初始化 ---
+        window.addEventListener('load', () => {
+            centerMonster();
+            runCountdown(startGame);
+        });
+        
+        track.addEventListener('mousedown', onDragStart);
+        track.addEventListener('touchstart', onDragStart, { passive: false });
+        window.addEventListener('mousemove', onDragMove);
+        window.addEventListener('touchmove', onDragMove, { passive: false });
+        window.addEventListener('mouseup', onDragEnd);
+        window.addEventListener('touchend', onDragEnd);
+    </script>
+</body>
+</html>

@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>08 - Final Navigation</title>
+    <style>
+        /* --- 基礎設定 --- */
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #ffffff;
+            font-family: Arial, sans-serif;
+            /* 使用 Flexbox 讓遊戲容器永遠在畫面正中間 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            /* 禁止瀏覽器預設觸控行為 */
+            touch-action: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        /* --- 遊戲容器 (設定為 960x720) --- */
+        #game-container {
+            position: relative;
+            width: 960px;
+            height: 720px;
+            background-color: #000;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            overflow: hidden;
+            /* 縮放時以中心為基準 */
+            transform-origin: center center;
+        }
+
+        /* --- 通用全版圖片樣式 --- */
+        .full-screen-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: fill;
+            pointer-events: none;
+        }
+
+        /* --- 圖層設定 --- */
+        #bg-layer { z-index: 1; }
+        #frame-img { z-index: 5; }
+        #maze-img { z-index: 6; opacity: 1; } /* 迷宮路徑圖 */
+
+        /* --- 遊戲標題 --- */
+        #game-title {
+            position: absolute;
+            top: 5%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 45%;
+            height: auto;
+            z-index: 25;
+            pointer-events: none;
+        }
+
+        /* --- 關卡物品 --- */
+        .game-item {
+            position: absolute;
+            width: 55px; 
+            height: auto;
+            z-index: 8;
+            filter: drop-shadow(2px 2px 3px rgba(0,0,0,0.4));
+        }
+        .collected {
+            filter: none;
+            opacity: 0.5;
+        }
+
+        /* --- 物品位置 --- */
+        #item-27 { top: 25%; left: 32%; transform: rotate(-8deg); }
+        #item-28 { top: 40%; left: 53%; transform: rotate(5deg); }
+        #item-29 { top: 53%; left: 35%; transform: rotate(-5deg); }
+        #item-30 { top: 72%; left: 42%; transform: rotate(10deg); }
+        #item-31 { top: 60%; left: 60%; transform: rotate(-5deg); }
+        #item-32 { top: 35%; left: 62%; transform: rotate(8deg); }
+        #item-33 { top: 50%; left: 70%; transform: rotate(-3deg); }
+
+        /* --- 角色: 細菌 --- */
+        #character {
+            position: absolute;
+            width: 70px;
+            height: auto;
+            z-index: 10;
+            transition: all 0.1s linear;
+        }
+
+        /* --- 控制按鈕區塊 (垂直置中) --- */
+        .controls-wrapper {
+            position: absolute;
+            right: 20px;
+            top: 50%; 
+            transform: translateY(-50%); 
+            width: 180px;
+            height: 180px;
+            z-index: 20;
+        }
+
+        .ctrl-btn {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            cursor: pointer;
+            transition: transform 0.1s;
+            -webkit-user-drag: none;
+        }
+        .ctrl-btn:active { transform: scale(0.9); }
+
+        #btn-up { top: 35px; left: 50%; transform: translateX(-50%); }
+        #btn-down { bottom: 35px; left: 50%; transform: translateX(-50%); }
+        #btn-right { top: 50%; right: 25px; transform: translateY(-50%); }
+        #btn-left { top: 50%; left: 25px; transform: translateY(-50%); }
+
+        /* --- 提示按鈕 --- */
+        #hint-button {
+            position: absolute;
+            bottom: 12%; 
+            right: 6%; 
+            width: 130px;
+            height: auto;
+            cursor: pointer;
+            z-index: 20;
+            transition: transform 0.1s;
+        }
+        #hint-button:active { transform: scale(0.95); }
+
+        #menu-button {
+            position: absolute;
+            top: 4%; right: 4%;
+            width: 80px; height: auto;
+            cursor: pointer;
+            z-index: 20;
+        }
+
+        /* --- Canvas (隱藏，用於碰撞偵測) --- */
+        #maze-canvas { display: none; }
+
+
+        /* =========================================
+           彈出視窗樣式 (Modal)
+           ========================================= */
+        
+        /* Modal 背景遮罩 */
+        .modal-overlay {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.75);
+            display: none; 
+            justify-content: center;
+            align-items: center;
+            z-index: 100; 
+        }
+
+        /* Modal 內容容器 (統一寬度 780px) */
+        .modal-container {
+            position: relative;
+            width: 780px; 
+            height: auto;
+        }
+
+        /* Modal 內的圖片 */
+        .modal-img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        /* 右上角關閉按鈕 (0-2.png) */
+        #close-button {
+             position: absolute; 
+            top: -30px;      /* 往上移出視窗 */
+            right: -60px;    /* 往右移出視窗 */
+            width: 90px;     /* 稍微加大 */
+            cursor: pointer; 
+            z-index: 101; 
+            transition: transform 0.1s; 
+            transform: none; /* 移除之前的 transform */
+        }
+        
+        /* 暫停選單按鈕 */
+        .pause-btn-group {
+            position: absolute;
+            bottom: 25%;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            gap: 10%; 
+        }
+        .pause-ctrl-btn {
+            width: 22%; 
+            cursor: pointer;
+        }
+
+        /* 完成按鈕 (101.png) */
+        #btn-finish {
+            position: absolute; 
+            top: -30px;      /* 往上移出視窗 */
+            right: -60px;    /* 往右移出視窗 */
+            width: 90px;     /* 稍微加大 */
+            cursor: pointer; 
+            z-index: 101; 
+            transition: transform 0.1s; 
+            transform: none; /* 移除之前的 transform */
+        }
+
+        /* 步驟提示小圖 */
+        #step-popup {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 90;
+            display: none;
+            width: 300px;
+        }
+        #step-popup img { width: 100%; display: block; }
+
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        
+        <img src="img/0.png" id="bg-layer" class="full-screen-layer" alt="Background">
+        <img src="img/00.png" id="frame-img" class="full-screen-layer" alt="Frame">
+        <img src="img/08-3.png" id="maze-img" class="full-screen-layer" alt="Maze">
+        
+        <img src="img/08-0.png" id="game-title" alt="遊戲標題">
+
+        <img src="img/08-27.png" id="item-27" class="game-item" data-collected="false" alt="內">
+        <img src="img/08-28.png" id="item-28" class="game-item" data-collected="false" alt="外">
+        <img src="img/08-29.png" id="item-29" class="game-item" data-collected="false" alt="夾">
+        <img src="img/08-30.png" id="item-30" class="game-item" data-collected="false" alt="弓">
+        <img src="img/08-31.png" id="item-31" class="game-item" data-collected="false" alt="大">
+        <img src="img/08-32.png" id="item-32" class="game-item" data-collected="false" alt="立">
+        <img src="img/08-33.png" id="item-33" class="game-item" data-collected="false" alt="腕">
+
+        <img src="img/08-5.png" id="character" alt="Bacteria">
+
+        <div class="controls-wrapper">
+            <img src="img/08-6.png" id="btn-up" class="ctrl-btn" alt="Up">
+            <img src="img/08-7.png" id="btn-down" class="ctrl-btn" alt="Down">
+            <img src="img/08-9.png" id="btn-left" class="ctrl-btn" alt="Left">
+            <img src="img/08-8.png" id="btn-right" class="ctrl-btn" alt="Right">
+        </div>
+        
+        <img src="img/0-1.png" id="hint-button" alt="提示按鈕">
+        <img src="img/004.png" id="menu-button" alt="選單按鈕">
+
+        <div id="hint-modal" class="modal-overlay">
+            <div class="modal-container">
+                <img src="img/08-1.png" class="modal-img" alt="提示背景">
+                <img src="img/0-2.png" id="close-button" alt="關閉">
+            </div>
+        </div>
+
+        <div id="pause-modal" class="modal-overlay">
+            <div class="modal-container">
+                <img src="img/001.png" class="modal-img" alt="暫停背景">
+                <div class="pause-btn-group">
+                    <img src="img/002.png" id="btn-home" class="pause-ctrl-btn" alt="回首頁">
+                    <img src="img/003.png" id="btn-restart" class="pause-ctrl-btn" alt="重新開始">
+                </div>
+            </div>
+        </div>
+
+        <div id="completion-modal" class="modal-overlay">
+            <div class="modal-container">
+                <img src="img/08-100.png" class="modal-img" alt="完成背景">
+                <img src="img/101.png" id="btn-finish" alt="完成按鈕">
+            </div>
+        </div>
+
+        <div id="step-popup">
+            <img id="step-popup-image" src="" alt="步驟圖示">
+        </div>
+
+    </div>
+
+    <canvas id="maze-canvas" width="960" height="720"></canvas>
+
+    <script>
+        // --- 全局變數 ---
+        const container = document.getElementById('game-container');
+        const character = document.getElementById('character');
+        const items = document.querySelectorAll('.game-item');
+        const mazeImg = document.getElementById('maze-img');
+        const mazeCanvas = document.getElementById('maze-canvas');
+        const ctx = mazeCanvas.getContext('2d');
+        
+        // Modal 相關
+        const hintModal = document.getElementById('hint-modal');
+        const pauseModal = document.getElementById('pause-modal');
+        const completionModal = document.getElementById('completion-modal');
+        const stepPopup = document.getElementById('step-popup');
+
+        // 參數
+        const step = 30;  
+        const charSize = 70; 
+        const COLOR_TOLERANCE = 100;
+        
+        // 初始位置
+        let posX = 250;  
+        let posY = 110;
+
+        // --- 圖片對應表 ---
+        const stepPopupMap = {
+            'item-27': 'img/08-20.png', 'item-28': 'img/08-21.png', 'item-29': 'img/08-22.png',
+            'item-30': 'img/08-23.png', 'item-31': 'img/08-24.png', 'item-32': 'img/08-25.png',
+            'item-33': 'img/08-26.png',
+        };
+        const replacementMap = {
+            'item-27': 'img/08-10.png', 'item-28': 'img/08-11.png', 'item-29': 'img/08-12.png',
+            'item-30': 'img/08-13.png', 'item-31': 'img/08-14.png', 'item-32': 'img/08-15.png',
+            'item-33': 'img/08-16.png',
+        };
+        const correctSequence = ['item-27', 'item-28', 'item-29', 'item-30', 'item-31', 'item-32', 'item-33'];
+        let currentSequenceIndex = 0;
+
+        // ==========================================
+        //  核心功能: resizeGame (自動縮放適配)
+        // ==========================================
+        function resizeGame() {
+            const gameWidth = 960;
+            const gameHeight = 720;
+            const windowWidth = window.innerWidth;
+            const windowHeight = window.innerHeight;
+
+            const scale = Math.min(windowWidth / gameWidth, windowHeight / gameHeight);
+
+            container.style.transform = `scale(${scale})`;
+        }
+
+        window.addEventListener('resize', resizeGame);
+        window.addEventListener('load', resizeGame);
+
+        // ==========================================
+        //  跳轉功能
+        // ==========================================
+        function goToIndex() {
+            window.location.href = 'index.html';
+        }
+
+        // ==========================================
+        //  按鈕事件綁定
+        // ==========================================
+        function bindButtonEvent(elemId, action) {
+            const elem = document.getElementById(elemId);
+            if (!elem) return;
+            const handleEvent = (e) => {
+                e.preventDefault(); 
+                e.stopPropagation();
+                action();
+            };
+            elem.addEventListener('touchstart', handleEvent, { passive: false });
+            elem.addEventListener('click', handleEvent);
+        }
+
+        bindButtonEvent('btn-up', () => move(0, -1));
+        bindButtonEvent('btn-down', () => move(0, 1));
+        bindButtonEvent('btn-left', () => move(-1, 0));
+        bindButtonEvent('btn-right', () => move(1, 0));
+        
+        bindButtonEvent('hint-button', () => {
+             if (pauseModal.style.display === 'flex' || completionModal.style.display === 'flex') return;
+             hintModal.style.display = 'flex';
+        });
+        bindButtonEvent('close-button', () => hintModal.style.display = 'none');
+        bindButtonEvent('menu-button', showPauseModal);
+        
+        // --- 導航與重置綁定 ---
+        bindButtonEvent('btn-home', goToIndex);   // 002.png -> 回 index
+        bindButtonEvent('btn-restart', restartGame);  // 003.png -> 重玩
+        bindButtonEvent('btn-finish', goToIndex);     // 101.png -> 回 index
+
+        // ==========================================
+        //  遊戲邏輯
+        // ==========================================
+        function showPauseModal() {
+            if (hintModal.style.display === 'flex' || completionModal.style.display === 'flex') return;
+            pauseModal.style.display = 'flex';
+        }
+        function hidePauseModal() {
+            pauseModal.style.display = 'none';  
+        }
+
+        function restartGame() {
+            posX = 250; 
+            posY = 110;
+            updatePosition();
+            items.forEach(item => {
+                const itemId = item.id;
+                const originalSrc = 'img/' + itemId.replace('item-', '') + '.png'; 
+                item.src = originalSrc;
+                item.setAttribute('data-collected', 'false');
+                item.classList.remove('collected');
+            });
+            currentSequenceIndex = 0;
+            hidePauseModal();
+            completionModal.style.display = 'none'; 
+        }
+
+        function setupMazeCollision() {
+            if (mazeImg.complete) {
+                ctx.drawImage(mazeImg, 0, 0, mazeCanvas.width, mazeCanvas.height);
+            } else {
+                mazeImg.onload = () => {
+                    ctx.drawImage(mazeImg, 0, 0, mazeCanvas.width, mazeCanvas.height);
+                };
+            }
+        }
+
+        function isWallCollision(x, y) {
+            const checkX = Math.round(x + charSize / 2);
+            const checkY = Math.round(y + charSize / 2);
+            
+            if (checkX < 0 || checkX >= mazeCanvas.width || checkY < 0 || checkY >= mazeCanvas.height) {
+                return true; 
+            }
+            
+            const pixelData = ctx.getImageData(checkX, checkY, 1, 1).data;
+            const r = pixelData[0];
+            const g = pixelData[1];
+            const b = pixelData[2];
+            
+            const isPath = (r > (255 - COLOR_TOLERANCE)) && 
+                           (g > (255 - COLOR_TOLERANCE)) && 
+                           (b > (255 - COLOR_TOLERANCE));
+            return !isPath; 
+        }
+
+        function updatePosition() {
+            character.style.left = posX + 'px';
+            character.style.top = posY + 'px';
+        }
+
+        function move(dx, dy) {
+            if (hintModal.style.display === 'flex' || 
+                stepPopup.style.display === 'block' || 
+                pauseModal.style.display === 'flex' || 
+                completionModal.style.display === 'flex') {
+                return;
+            }
+            
+            let newX = posX + (dx * step);
+            let newY = posY + (dy * step);
+
+            if (newX < 0 || newX > 960 - charSize || newY < 0 || newY > 720 - charSize) {
+                return;  
+            }
+
+            if (mazeCanvas.width > 0 && isWallCollision(newX, newY)) {
+                return;  
+            }
+            
+            posX = newX;
+            posY = newY;
+            updatePosition();
+            checkCollisions();  
+        }
+
+        function isColliding(rect1, rect2) {
+            const r1 = rect1.getBoundingClientRect();
+            const r2 = rect2.getBoundingClientRect();
+            const padding = 15 * (r1.width / charSize); 
+            
+            return !(
+                r1.right - padding < r2.left + padding || 
+                r1.left + padding > r2.right - padding || 
+                r1.bottom - padding < r2.top + padding || 
+                r1.top + padding > r2.bottom - padding
+            );
+        }
+
+        function showStepPopup(itemId) {
+            const popupSrc = stepPopupMap[itemId];
+            if (!popupSrc) return;
+            stepPopup.querySelector('img').src = popupSrc;
+            stepPopup.style.display = 'block';
+            setTimeout(() => {
+                stepPopup.style.display = 'none';
+            }, 2000);
+        }
+
+        function checkCollisions() {
+            if (currentSequenceIndex >= correctSequence.length) return;
+
+            const targetItemId = correctSequence[currentSequenceIndex];
+            const targetItem = document.getElementById(targetItemId);
+
+            if (targetItem && isColliding(character, targetItem)) {
+                if (targetItem.getAttribute('data-collected') === 'false') {
+                    const replacementSrc = replacementMap[targetItemId];
+                    if (replacementSrc) targetItem.src = replacementSrc;
+                    
+                    targetItem.setAttribute('data-collected', 'true');
+                    targetItem.classList.add('collected');
+                    showStepPopup(targetItemId);
+                    currentSequenceIndex++;
+
+                    if (currentSequenceIndex === correctSequence.length) {
+                        setTimeout(() => completionModal.style.display = 'flex', 2000);
+                    }
+                }
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (hintModal.style.display !== 'flex' && 
+                stepPopup.style.display !== 'block' && 
+                pauseModal.style.display !== 'flex' &&
+                completionModal.style.display !== 'flex') {
+                if(e.key === 'ArrowUp') move(0, -1);
+                if(e.key === 'ArrowDown') move(0, 1);
+                if(e.key === 'ArrowLeft') move(-1, 0);
+                if(e.key === 'ArrowRight') move(1, 0);
+            }
+            if (e.key === 'Escape') {
+                 if (hintModal.style.display === 'flex') hintModal.style.display = 'none';
+                 else if (pauseModal.style.display === 'flex') hidePauseModal();
+            }
+        });
+
+        setupMazeCollision();
+        updatePosition();
+        resizeGame();
+
+    </script>
+</body>
+</html>
